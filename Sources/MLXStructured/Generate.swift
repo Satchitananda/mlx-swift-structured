@@ -46,7 +46,7 @@ public func generate<Content: Decodable>(
     return (result, content)
 }
 
-#if compiler(>=6.2)
+#if compiler(>=6.2) && canImport(FoundationModels)
 @available(macOS 26.0, iOS 26.0, *)
 public func generate<Content: Generable>(
     input: LMInput,

@@ -12,7 +12,7 @@ import JSONSchema
 import FoundationModels
 #endif
 
-#if compiler(>=6.2)
+#if compiler(>=6.2) && canImport(FoundationModels)
 @available(macOS 26.0, iOS 26.0, *)
 public extension Grammar {
     
