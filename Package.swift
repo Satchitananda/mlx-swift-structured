@@ -5,12 +5,12 @@ import PackageDescription
 
 let package = Package(
     name: "mlx-swift-structured",
-    platforms: [.macOS(.v14), .iOS(.v16)],
+    platforms: [.macOS(.v14), .iOS(.v17)],
     products: [.library(name: "MLXStructured", targets: ["MLXStructured"])],
     dependencies: [
-        .package(url: "https://github.com/ml-explore/mlx-swift", from: "0.25.6"),
-        .package(url: "https://github.com/ml-explore/mlx-swift-lm", from: "2.29.2"),
-        .package(url: "https://github.com/huggingface/swift-transformers", from: "1.1.0"),
+        .package(url: "https://github.com/ml-explore/mlx-swift", .upToNextMinor(from: "0.30.3")),
+        .package(url: "https://github.com/ml-explore/mlx-swift-lm", .upToNextMinor(from: "2.30.6")),
+        .package(url: "https://github.com/huggingface/swift-transformers", .upToNextMinor(from: "1.1.6")),
         .package(url: "https://github.com/petrukha-ivan/swift-json-schema", from: "2.0.2"),
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.4.0"),
     ],
@@ -31,11 +31,13 @@ let package = Package(
                 .headerSearchPath("xgrammar/include"),
                 .headerSearchPath("xgrammar/3rdparty/dlpack/include"),
                 .headerSearchPath("xgrammar/3rdparty/picojson"),
+                .unsafeFlags(["-w"]),
             ],
             cxxSettings: [
                 .headerSearchPath("xgrammar/include"),
                 .headerSearchPath("xgrammar/3rdparty/dlpack/include"),
                 .headerSearchPath("xgrammar/3rdparty/picojson"),
+                .unsafeFlags(["-w"]),
             ]
         ),
         // Main package
@@ -45,7 +47,7 @@ let package = Package(
                 .target(name: "CMLXStructured"),
                 .product(name: "MLX", package: "mlx-swift"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
-                .product(name: "JSONSchema", package: "swift-json-schema")
+                .product(name: "JSONSchema", package: "swift-json-schema"),
             ]
         ),
         // CLI for testing
