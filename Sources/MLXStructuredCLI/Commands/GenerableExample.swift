@@ -14,7 +14,7 @@ import MLXLMCommon
 @Generable
 @available(macOS 26.0, iOS 26.0, *)
 private struct MovieRecord: Codable {
-    
+
     @Guide(description: "Movie title")
     let title: String
 
@@ -33,31 +33,31 @@ private struct MovieRecord: Codable {
 
 @available(macOS 26.0, iOS 26.0, *)
 private extension MovieRecord {
-    
+
     static let instruction = """
-    Instruction: Extract movie record from the text according to schema: \(MovieRecord.generationSchema)
-    """
-    
+        Instruction: Extract movie record from the text according to schema: \(MovieRecord.generationSchema)
+        """
+
     static let sample = """
-    Text: The Dark Knight (2008) is a superhero crime film directed by Christopher Nolan. Starring Christian Bale, Heath Ledger, and Michael Caine.
-    """
+        Text: The Dark Knight (2008) is a superhero crime film directed by Christopher Nolan. Starring Christian Bale, Heath Ledger, and Michael Caine.
+        """
 }
 
 struct GenerableExample: AsyncParsableCommand {
-    
+
     static let configuration = CommandConfiguration(
         commandName: "generable",
         abstract: "Generate @Generable type."
     )
-    
+
     @OptionGroup
     var model: ModelArguments
-    
+
     func run() async throws {
         guard #available(macOS 26.0, iOS 26.0, *) else {
             fatalError("Generable examples available from macOS 26 only")
         }
-        
+
         let context = try await model.modelContext()
         let prompt = MovieRecord.instruction + "\n" + MovieRecord.sample
         let input = try await context.processor.prepare(input: UserInput(prompt: prompt))
@@ -68,20 +68,20 @@ struct GenerableExample: AsyncParsableCommand {
 }
 
 struct GenerableStreamExample: AsyncParsableCommand {
-    
+
     static let configuration = CommandConfiguration(
         commandName: "generable-stream",
         abstract: "Generate @Generable type using stream and partially generated content."
     )
-    
+
     @OptionGroup
     var model: ModelArguments
-    
+
     func run() async throws {
         guard #available(macOS 26.0, iOS 26.0, *) else {
             fatalError("Generable examples available from macOS 26 only")
         }
-        
+
         let context = try await model.modelContext()
         let prompt = MovieRecord.instruction + "\n" + MovieRecord.sample
         let input = try await context.processor.prepare(input: UserInput(prompt: prompt))

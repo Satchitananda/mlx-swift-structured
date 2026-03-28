@@ -11,15 +11,15 @@ import MLXStructured
 import MLXLMCommon
 
 struct StructuralExample: AsyncParsableCommand {
-    
+
     static let configuration = CommandConfiguration(
         commandName: "structural",
         abstract: "Generate text according to complex structural grammar."
     )
-    
+
     @OptionGroup
     var model: ModelArguments
-    
+
     func run() async throws {
         let context = try await model.modelContext()
         let includePrefix = Bool.random()

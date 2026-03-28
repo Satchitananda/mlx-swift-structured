@@ -16,7 +16,7 @@ public enum Grammar {
 }
 
 public extension Grammar {
-    
+
     @available(*, deprecated, message: "Prefer constructing prompt manually, this property will be removed in the future versions")
     var raw: String {
         switch self {
@@ -30,7 +30,7 @@ public extension Grammar {
             return tag
         }
     }
-    
+
     @available(*, deprecated, message: "Prefer constructing prompt manually, this property will be removed in the future versions")
     var guidance: String? {
         switch self {

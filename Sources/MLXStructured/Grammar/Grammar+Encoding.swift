@@ -9,9 +9,9 @@ import Foundation
 import JSONSchema
 
 extension JSONEncoder {
-    
+
     static let `default` = JSONEncoder()
-    
+
     static let sorted: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
@@ -20,9 +20,9 @@ extension JSONEncoder {
 }
 
 extension JSONDecoder {
-    
+
     static let `default` = JSONDecoder()
-    
+
     static func withPropertiesOrderInfo(_ order: [String]) -> JSONDecoder {
         let decoder = JSONDecoder()
         decoder.userInfo[JSONSchema.ObjectSchema.Properties.orderInfoKey] = order
