@@ -83,15 +83,21 @@ public struct OrFormat: Encodable {
 
 public struct AnyTextFormat: Encodable {
 
-    public init() {}
+    public let excludes: [String]
+
+    public init(excludes: [String] = []) {
+        self.excludes = excludes
+    }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode("any_text", forKey: .type)
+        try container.encode(excludes, forKey: .excludes)
     }
 
     enum CodingKeys: CodingKey {
         case type
+        case excludes
     }
 }
 
@@ -192,11 +198,13 @@ public struct TriggeredTagsFormat: Encodable {
     public let triggers: [String]
     public let tags: [TagFormat]
     public let options: Options
+    public let excludes: [String]
 
-    public init(triggers: [String], tags: [TagFormat], options: Options = []) {
+    public init(triggers: [String], tags: [TagFormat], options: Options = [], excludes: [String] = []) {
         self.triggers = triggers
         self.tags = tags
         self.options = options
+        self.excludes = excludes
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -206,6 +214,7 @@ public struct TriggeredTagsFormat: Encodable {
         try container.encode(tags, forKey: .tags)
         try container.encode(options.contains(.atLeastOne), forKey: .atLeastOne)
         try container.encode(options.contains(.stopAfterFirst), forKey: .stopAfterFirst)
+        try container.encode(excludes, forKey: .excludes)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -214,6 +223,7 @@ public struct TriggeredTagsFormat: Encodable {
         case tags
         case atLeastOne = "at_least_one"
         case stopAfterFirst = "stop_after_first"
+        case excludes
     }
 }
 
@@ -242,5 +252,93 @@ public struct TagFormat: Encodable {
         case begin
         case content
         case end
+    }
+}
+
+public struct OptionalFormat: Encodable {
+
+    public let content: AnyEncodable
+
+    public init(content: Encodable) {
+        self.content = AnyEncodable(content)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode("optional", forKey: .type)
+        try container.encode(content, forKey: .content)
+    }
+
+    enum CodingKeys: CodingKey {
+        case type
+        case content
+    }
+}
+
+public struct PlusFormat: Encodable {
+
+    public let content: AnyEncodable
+
+    public init(content: Encodable) {
+        self.content = AnyEncodable(content)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode("plus", forKey: .type)
+        try container.encode(content, forKey: .content)
+    }
+
+    enum CodingKeys: CodingKey {
+        case type
+        case content
+    }
+}
+
+public struct StarFormat: Encodable {
+
+    public let content: AnyEncodable
+
+    public init(content: Encodable) {
+        self.content = AnyEncodable(content)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode("star", forKey: .type)
+        try container.encode(content, forKey: .content)
+    }
+
+    enum CodingKeys: CodingKey {
+        case type
+        case content
+    }
+}
+
+public struct RepeatFormat: Encodable {
+
+    public let min: Int
+    public let max: Int
+    public let content: AnyEncodable
+
+    public init(min: Int, max: Int, content: Encodable) {
+        self.min = min
+        self.max = max
+        self.content = AnyEncodable(content)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode("repeat", forKey: .type)
+        try container.encode(min, forKey: .min)
+        try container.encode(max, forKey: .max)
+        try container.encode(content, forKey: .content)
+    }
+
+    enum CodingKeys: CodingKey {
+        case type
+        case min
+        case max
+        case content
     }
 }

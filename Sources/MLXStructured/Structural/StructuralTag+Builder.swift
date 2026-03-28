@@ -122,8 +122,37 @@ public extension TagFormat {
 }
 
 public extension TriggeredTagsFormat {
-    init(triggers: [String], options: Options = [], @TagListBuilder _ content: () -> [TagFormat]) {
-        self.init(triggers: triggers, tags: content(), options: options)
+    init(
+        triggers: [String],
+        options: Options = [],
+        excludes: [String] = [],
+        @TagListBuilder _ content: () -> [TagFormat]
+    ) {
+        self.init(triggers: triggers, tags: content(), options: options, excludes: excludes)
+    }
+}
+
+public extension OptionalFormat {
+    init(@FormatBuilder _ content: () -> Encodable) {
+        self.init(content: content())
+    }
+}
+
+public extension PlusFormat {
+    init(@FormatBuilder _ content: () -> Encodable) {
+        self.init(content: content())
+    }
+}
+
+public extension StarFormat {
+    init(@FormatBuilder _ content: () -> Encodable) {
+        self.init(content: content())
+    }
+}
+
+public extension RepeatFormat {
+    init(min: Int, max: Int, @FormatBuilder _ content: () -> Encodable) {
+        self.init(min: min, max: max, content: content())
     }
 }
 
