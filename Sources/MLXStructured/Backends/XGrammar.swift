@@ -94,9 +94,46 @@ final class XGrammar {
                 regex.utf8CString.withUnsafeBufferPointer {
                     compile_regex_grammar(tokenizerInfo, $0.baseAddress, $0.count)
                 }
-            case .schema(let schema, let indent):
-                schema.utf8CString.withUnsafeBufferPointer {
-                    compile_json_schema_grammar(tokenizerInfo, $0.baseAddress, $0.count, Int32(indent ?? -1))
+            case .schema(let schema, let options):
+                schema.utf8CString.withUnsafeBufferPointer { schemaBuffer in
+                    let separators = options.separators
+                    var compileOptions = json_schema_compile_options_t(
+                        indent: Int32(options.indent ?? -1),
+                        any_whitespace: options.anyWhitespace ? 1 : 0,
+                        strict_mode: options.strictMode ? 1 : 0,
+                        max_whitespace_cnt: Int32(options.maxWhitespaceCount ?? -1),
+                        has_separators: 0,
+                        separators: json_schema_separators_t(
+                            comma_separator_utf8: nil,
+                            comma_separator_len: 0,
+                            colon_separator_utf8: nil,
+                            colon_separator_len: 0
+                        )
+                    )
+
+                    return separators?.comma.utf8CString.withUnsafeBufferPointer { commaBuffer in
+                        separators?.colon.utf8CString.withUnsafeBufferPointer { colonBuffer in
+                            compileOptions.has_separators = 1
+                            compileOptions.separators = json_schema_separators_t(
+                                comma_separator_utf8: commaBuffer.baseAddress,
+                                comma_separator_len: commaBuffer.count - 1,
+                                colon_separator_utf8: colonBuffer.baseAddress,
+                                colon_separator_len: colonBuffer.count - 1
+                            )
+                            return compile_json_schema_grammar(
+                                tokenizerInfo,
+                                schemaBuffer.baseAddress,
+                                schemaBuffer.count,
+                                &compileOptions
+                            )
+                        }
+                    }
+                        ?? compile_json_schema_grammar(
+                            tokenizerInfo,
+                            schemaBuffer.baseAddress,
+                            schemaBuffer.count,
+                            &compileOptions
+                        )
                 }
             case .structural(let tag):
                 tag.utf8CString.withUnsafeBufferPointer {
