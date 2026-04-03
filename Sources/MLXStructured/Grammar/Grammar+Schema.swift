@@ -11,7 +11,7 @@ import JSONSchema
 public extension Grammar {
 
     static func schema(_ schema: JSONSchema = .object(), indent: Int) throws -> Grammar {
-        try Grammar.schema(schema, options: JSONSchemaFormatOptions(indent: indent))
+        try Grammar.schema(schema, options: JSONSchemaFormatOptions(whitespace: .indent(indent)))
     }
 
     static func schema(_ schema: JSONSchema = .object(), options: JSONSchemaFormatOptions = .init()) throws -> Grammar {
@@ -23,34 +23,20 @@ public extension Grammar {
 
 public struct JSONSchemaFormatOptions: Sendable, Equatable {
 
-    public struct Separators: Sendable, Equatable {
-
-        public let comma: String
-        public let colon: String
-
-        public init(comma: String, colon: String) {
-            self.comma = comma
-            self.colon = colon
-        }
+    public enum Whitespace: Sendable, Equatable {
+        case none
+        case any
+        case indent(Int)
     }
 
-    public let indent: Int?
-    public let anyWhitespace: Bool
-    public let separators: Separators?
-    public let strictMode: Bool
-    public let maxWhitespaceCount: Int?
+    public let strict: Bool
+    public let whitespace: Whitespace
 
     public init(
-        indent: Int? = nil,
-        anyWhitespace: Bool = false,
-        separators: Separators? = nil,
-        strictMode: Bool = true,
-        maxWhitespaceCount: Int? = nil
+        strict: Bool = true,
+        whitespace: Whitespace = .none
     ) {
-        self.indent = indent
-        self.anyWhitespace = anyWhitespace
-        self.separators = separators
-        self.strictMode = strictMode
-        self.maxWhitespaceCount = maxWhitespaceCount
+        self.strict = strict
+        self.whitespace = whitespace
     }
 }

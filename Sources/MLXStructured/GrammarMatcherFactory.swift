@@ -10,24 +10,25 @@ import Hub
 
 extension GrammarMaskedLogitProcessor {
 
-    static let tokenizerInfoCache = Cache<ModelConfiguration, TokenizerInfo>()
+    private static let cache = Cache<ModelConfiguration, GrammarCompiler>()
 
     public static func from(
         hub: HubApi = .shared,  // TODO: Request changes in swift-transformers to make the tokenizer vocab (and some other properties) public
         configuration: ModelConfiguration,
         grammar: Grammar
     ) async throws -> GrammarMaskedLogitProcessor {
-        let tokenizerInfo = try await tokenizerInfo(for: configuration, hub: hub)
-        let grammarMatcher = try XGrammar(tokenizerInfo: tokenizerInfo, grammar: grammar)
+        let compiler = try await grammarCompiler(for: configuration, hub: hub)
+        let compiledGrammar = try compiler.compile(grammar: grammar)
+        let grammarMatcher = try XGrammar(compiledGrammar: compiledGrammar)
         let processor = GrammarMaskedLogitProcessor(grammarMatcher: grammarMatcher)
         return processor
     }
 
-    private static func tokenizerInfo(
+    private static func grammarCompiler(
         for configuration: ModelConfiguration,
         hub: HubApi
-    ) async throws -> TokenizerInfo {
-        if let cached = await tokenizerInfoCache.value(for: configuration) {
+    ) async throws -> GrammarCompiler {
+        if let cached = await cache.value(for: configuration) {
             return cached
         }
 
@@ -117,8 +118,9 @@ extension GrammarMaskedLogitProcessor {
         }
 
         let tokenizerInfo = TokenizerInfo(vocab: vocab, vocabType: vocabType, stopTokenIds: stopTokenIds)
-        await tokenizerInfoCache.set(tokenizerInfo, for: configuration)
-        return tokenizerInfo
+        let compiler = try GrammarCompiler(tokenizerInfo: tokenizerInfo)
+        await cache.set(compiler, for: configuration)
+        return compiler
     }
 }
 

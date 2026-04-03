@@ -1,19 +1,47 @@
 #include "mlx_structured/grammar_compiler.h"
 #include "mlx_structured/error_handler.h"
+#include <optional>
+#include <string>
+#include <utility>
 #include <xgrammar/matcher.h>
 
-using namespace xgrammar;
-
-extern "C" void *compile_ebnf_grammar(
+extern "C" void *grammar_compiler_new(
     void *tokenizer_info,
+    int max_threads,
+    int cache_enabled,
+    int64_t max_memory_bytes
+) {
+    try {
+        auto &tokenizer_info_ref = *static_cast<xgrammar::TokenizerInfo *>(tokenizer_info);
+        auto *grammar_compiler_ptr = new xgrammar::GrammarCompiler(
+            tokenizer_info_ref,
+            max_threads,
+            static_cast<bool>(cache_enabled),
+            max_memory_bytes
+        );
+        return grammar_compiler_ptr;
+    } catch (const std::exception &e) {
+        catch_error(e.what());
+        return nullptr;
+    }
+}
+
+extern "C" void grammar_compiler_free(void *grammar_compiler) {
+    if (grammar_compiler) {
+        delete static_cast<xgrammar::GrammarCompiler *>(grammar_compiler);
+    }
+}
+
+extern "C" void *grammar_compiler_compile_ebnf(
+    void *grammar_compiler,
     const char *ebnf_utf8,
     size_t ebnf_len
 ) {
     try {
         const std::string ebnf(ebnf_utf8, ebnf_len);
-        auto &tokenizer_info_ptr = *static_cast<TokenizerInfo *>(tokenizer_info);
-        auto *compiled_grammar_ptr = new CompiledGrammar(
-            GrammarCompiler(tokenizer_info_ptr).CompileGrammar(Grammar::FromEBNF(ebnf))
+        auto &compiler = *static_cast<xgrammar::GrammarCompiler *>(grammar_compiler);
+        auto *compiled_grammar_ptr = new xgrammar::CompiledGrammar(
+            compiler.CompileGrammar(xgrammar::Grammar::FromEBNF(ebnf))
         );
         return compiled_grammar_ptr;
     } catch (const std::exception &e) {
@@ -22,16 +50,15 @@ extern "C" void *compile_ebnf_grammar(
     }
 }
 
-extern "C" void *compile_regex_grammar(
-    void *tokenizer_info,
+extern "C" void *grammar_compiler_compile_regex(
+    void *grammar_compiler,
     const char *regex_utf8,
     size_t regex_len
 ) {
     try {
         const std::string regex(regex_utf8, regex_len);
-        auto &tokenizer_info_ptr = *static_cast<TokenizerInfo *>(tokenizer_info);
-        auto *compiled_grammar_ptr =
-            new CompiledGrammar(GrammarCompiler(tokenizer_info_ptr).CompileRegex(regex));
+        auto &compiler = *static_cast<xgrammar::GrammarCompiler *>(grammar_compiler);
+        auto *compiled_grammar_ptr = new xgrammar::CompiledGrammar(compiler.CompileRegex(regex));
         return compiled_grammar_ptr;
     } catch (const std::exception &e) {
         catch_error(e.what());
@@ -39,8 +66,8 @@ extern "C" void *compile_regex_grammar(
     }
 }
 
-extern "C" void *compile_json_schema_grammar(
-    void *tokenizer_info,
+extern "C" void *grammar_compiler_compile_json_schema(
+    void *grammar_compiler,
     const char *schema_utf8,
     size_t schema_len,
     const json_schema_compile_options_t *options
@@ -85,18 +112,17 @@ extern "C" void *compile_json_schema_grammar(
             );
         }
 
-        auto &tokenizer_info_ptr = *static_cast<TokenizerInfo *>(tokenizer_info);
-        const auto compiled_grammar = GrammarCompiler(tokenizer_info_ptr)
-                                          .CompileJSONSchema(
-                                              schema,
-                                              any_whitespace,
-                                              indent,
-                                              separators,
-                                              strict_mode,
-                                              max_whitespace_cnt
-                                          );
+        auto &compiler = *static_cast<xgrammar::GrammarCompiler *>(grammar_compiler);
+        const auto compiled_grammar = compiler.CompileJSONSchema(
+            schema,
+            any_whitespace,
+            indent,
+            separators,
+            strict_mode,
+            max_whitespace_cnt
+        );
 
-        auto *compiled_grammar_ptr = new CompiledGrammar(compiled_grammar);
+        auto *compiled_grammar_ptr = new xgrammar::CompiledGrammar(compiled_grammar);
         return compiled_grammar_ptr;
     } catch (const std::exception &e) {
         catch_error(e.what());
@@ -104,17 +130,16 @@ extern "C" void *compile_json_schema_grammar(
     }
 }
 
-extern "C" void *compile_structural_tag(
-    void *tokenizer_info,
+extern "C" void *grammar_compiler_compile_structural_tag(
+    void *grammar_compiler,
     const char *structural_tag_utf8,
     size_t structural_tag_len
 ) {
     try {
         const std::string structural_tag(structural_tag_utf8, structural_tag_len);
-        auto &tokenizer_info_ptr = *static_cast<TokenizerInfo *>(tokenizer_info);
-        auto *compiled_grammar_ptr = new CompiledGrammar(
-            GrammarCompiler(tokenizer_info_ptr).CompileStructuralTag(structural_tag)
-        );
+        auto &compiler = *static_cast<xgrammar::GrammarCompiler *>(grammar_compiler);
+        auto *compiled_grammar_ptr =
+            new xgrammar::CompiledGrammar(compiler.CompileStructuralTag(structural_tag));
         return compiled_grammar_ptr;
     } catch (const std::exception &e) {
         catch_error(e.what());
@@ -122,8 +147,18 @@ extern "C" void *compile_structural_tag(
     }
 }
 
+extern "C" int64_t compiled_grammar_vocab_size(void *compiled_grammar) {
+    try {
+        auto *compiled_grammar_ptr = static_cast<xgrammar::CompiledGrammar *>(compiled_grammar);
+        return static_cast<int64_t>(compiled_grammar_ptr->GetTokenizerInfo().GetVocabSize());
+    } catch (const std::exception &e) {
+        catch_error(e.what());
+        return -1;
+    }
+}
+
 extern "C" void compiled_grammar_free(void *compiled_grammar) {
     if (compiled_grammar) {
-        delete static_cast<CompiledGrammar *>(compiled_grammar);
+        delete static_cast<xgrammar::CompiledGrammar *>(compiled_grammar);
     }
 }

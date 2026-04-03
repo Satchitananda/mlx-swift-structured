@@ -16,51 +16,6 @@ enum XGrammarError: Error {
     case unknown(String)
 }
 
-enum CErrorHandler {
-
-    private static let state = State()
-
-    private static let installHandler: Void = {
-        set_error_handler(errorHandlerClosure)
-    }()
-
-    private static let errorHandlerClosure: @convention(c) (UnsafePointer<CChar>?) -> Void = {
-        state.lastErrorMessage = $0.map {
-            String(cString: $0)
-        }
-    }
-
-    static func initialize() {
-        _ = installHandler
-    }
-
-    static func clearLastError() {
-        state.lastErrorMessage = nil
-    }
-
-    static var lastErrorMessage: String {
-        state.lastErrorMessage ?? "Unknown Error"
-    }
-
-    private final class State: @unchecked Sendable {
-
-        let lock = NSLock()
-        var _lastErrorMessage: String? = nil
-
-        var lastErrorMessage: String? {
-            get { lock.withLock { _lastErrorMessage } }
-            set { lock.withLock { _lastErrorMessage = newValue } }
-        }
-    }
-}
-
-@inline(__always)
-func withCErrorHandling<T>(_ body: () throws -> T) rethrows -> T {
-    CErrorHandler.initialize()
-    CErrorHandler.clearLastError()
-    return try body()
-}
-
 final class XGrammar {
 
     private let vocabSize: Int
@@ -69,104 +24,9 @@ final class XGrammar {
     private var bitmask: DLTensor
     private let grammarMatcher: UnsafeMutableRawPointer?
 
-    init(
-        vocab: [String],
-        vocabType: Int32 = 0,
-        stopTokenIds: [Int32] = [],
-        grammar: Grammar
-    ) throws {
-        let vocab = vocab.map { strdup($0) }
-        let tokenizerInfo = withCErrorHandling {
-            vocab.map({ UnsafePointer($0) }).withUnsafeBufferPointer { vocabBuffer in
-                stopTokenIds.withUnsafeBufferPointer { stopTokenIdsBuffer in
-                    tokenizer_info_new(
-                        vocabBuffer.baseAddress,
-                        vocabBuffer.count,
-                        vocabType,
-                        stopTokenIdsBuffer.baseAddress,
-                        stopTokenIdsBuffer.count
-                    )
-                }
-            }
-        }
-
-        defer {
-            tokenizer_info_free(tokenizerInfo)
-            vocab.forEach {
-                free($0)
-            }
-        }
-
-        guard let tokenizerInfo else {
-            throw XGrammarError.invalidVocab(CErrorHandler.lastErrorMessage)
-        }
-
-        let compiledGrammar = try withCErrorHandling {
-            switch grammar {
-            case _ where grammar.raw.isEmpty:
-                throw XGrammarError.emptyGrammar
-            case .ebnf(let ebnf):
-                return ebnf.utf8CString.withUnsafeBufferPointer {
-                    compile_ebnf_grammar(tokenizerInfo, $0.baseAddress, $0.count)
-                }
-            case .regex(let regex):
-                return regex.utf8CString.withUnsafeBufferPointer {
-                    compile_regex_grammar(tokenizerInfo, $0.baseAddress, $0.count)
-                }
-            case .schema(let schema, let options):
-                return schema.utf8CString.withUnsafeBufferPointer { schemaBuffer in
-                    let separators = options.separators
-                    var compileOptions = json_schema_compile_options_t(
-                        indent: Int32(options.indent ?? -1),
-                        any_whitespace: options.anyWhitespace ? 1 : 0,
-                        strict_mode: options.strictMode ? 1 : 0,
-                        max_whitespace_cnt: Int32(options.maxWhitespaceCount ?? -1),
-                        has_separators: 0,
-                        separators: json_schema_separators_t(
-                            comma_separator_utf8: nil,
-                            comma_separator_len: 0,
-                            colon_separator_utf8: nil,
-                            colon_separator_len: 0
-                        )
-                    )
-
-                    return separators?.comma.utf8CString.withUnsafeBufferPointer { commaBuffer in
-                        separators?.colon.utf8CString.withUnsafeBufferPointer { colonBuffer in
-                            compileOptions.has_separators = 1
-                            compileOptions.separators = json_schema_separators_t(
-                                comma_separator_utf8: commaBuffer.baseAddress,
-                                comma_separator_len: commaBuffer.count - 1,
-                                colon_separator_utf8: colonBuffer.baseAddress,
-                                colon_separator_len: colonBuffer.count - 1
-                            )
-                            return compile_json_schema_grammar(
-                                tokenizerInfo,
-                                schemaBuffer.baseAddress,
-                                schemaBuffer.count,
-                                &compileOptions
-                            )
-                        }
-                    }
-                        ?? compile_json_schema_grammar(
-                            tokenizerInfo,
-                            schemaBuffer.baseAddress,
-                            schemaBuffer.count,
-                            &compileOptions
-                        )
-                }
-            case .structural(let tag):
-                return tag.utf8CString.withUnsafeBufferPointer {
-                    compile_structural_tag(tokenizerInfo, $0.baseAddress, $0.count)
-                }
-            }
-        }
-
-        defer {
-            compiled_grammar_free(compiledGrammar)
-        }
-
-        guard let compiledGrammar else {
-            throw XGrammarError.invalidGrammar(CErrorHandler.lastErrorMessage)
+    init(compiledGrammar: CompiledGrammar) throws {
+        guard let grammarMatcher = withCErrorHandling({ grammar_matcher_new(compiledGrammar.pointer) }) else {
+            throw XGrammarError.unknown(CErrorHandler.lastErrorMessage)
         }
 
         var bitmap = [Float](repeating: 0, count: 256 * 8)
@@ -176,24 +36,11 @@ final class XGrammar {
             }
         }
 
-        guard let grammarMatcher = withCErrorHandling({ grammar_matcher_new(compiledGrammar) }) else {
-            throw XGrammarError.unknown(CErrorHandler.lastErrorMessage)
-        }
-
-        self.vocabSize = vocab.count
-        self.bufferSize = (vocab.count + 31) / 32
+        self.vocabSize = compiledGrammar.vocabSize
+        self.bufferSize = (vocabSize + 31) / 32
         self.bitmap = MLXArray(bitmap).reshaped([256, 8])
         self.bitmask = DLTensor.nextTokenBitmask(bufferSize: bufferSize)
         self.grammarMatcher = grammarMatcher
-    }
-
-    convenience init(tokenizerInfo: TokenizerInfo, grammar: Grammar) throws {
-        try self.init(
-            vocab: tokenizerInfo.vocab,
-            vocabType: tokenizerInfo.vocabType,
-            stopTokenIds: tokenizerInfo.stopTokenIds,
-            grammar: grammar
-        )
     }
 
     deinit {
