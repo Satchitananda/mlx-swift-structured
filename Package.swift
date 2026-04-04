@@ -27,12 +27,6 @@ let package = Package(
                 "xgrammar/3rdparty/picojson",
                 "xgrammar/cpp/nanobind",
             ],
-            cSettings: [
-                .headerSearchPath("xgrammar/include"),
-                .headerSearchPath("xgrammar/3rdparty/dlpack/include"),
-                .headerSearchPath("xgrammar/3rdparty/picojson"),
-                .unsafeFlags(["-w"]),
-            ],
             cxxSettings: [
                 .headerSearchPath("xgrammar/include"),
                 .headerSearchPath("xgrammar/3rdparty/dlpack/include"),
@@ -47,6 +41,7 @@ let package = Package(
                 .target(name: "CMLXStructured"),
                 .product(name: "MLX", package: "mlx-swift"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
+                .product(name: "Hub", package: "swift-transformers"),
                 .product(name: "JSONSchema", package: "swift-json-schema"),
             ]
         ),
@@ -57,6 +52,7 @@ let package = Package(
                 .target(name: "MLXStructured"),
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),
                 .product(name: "MLXVLM", package: "mlx-swift-lm"),
+                .product(name: "Hub", package: "swift-transformers"),
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ],
         ),
