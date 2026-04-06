@@ -5,14 +5,11 @@
 //  Created by Rudrank Riyam on 21.09.2025.
 //
 
-import Foundation
-import JSONSchema
-
 #if canImport(FoundationModels)
+    import Foundation
     import FoundationModels
-#endif
+    import JSONSchema
 
-#if compiler(>=6.2)
     @available(macOS 26.0, iOS 26.0, *)
     public extension Grammar {
 
