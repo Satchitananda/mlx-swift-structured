@@ -56,7 +56,7 @@ extern "C" bool grammar_matcher_is_terminated(void *grammar_matcher) {
         return grammar_matcher_ptr->IsTerminated();
     } catch (const std::exception &e) {
         catch_error(e.what());
-        return;
+        return false;
     }
 }
 
