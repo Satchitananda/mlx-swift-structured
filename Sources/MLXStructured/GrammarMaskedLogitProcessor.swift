@@ -9,22 +9,45 @@ import MLXLMCommon
 import MLX
 
 public final class GrammarMaskedLogitProcessor: LogitProcessor, @unchecked Sendable {
-    
-    public let grammarMatcher: GrammarMatcher
-    
+
+    let grammarMatcher: GrammarMatcher
+    var pendingToken: MLXArray?
+
     public init(grammarMatcher: GrammarMatcher) {
         self.grammarMatcher = grammarMatcher
     }
-    
+
     public func prompt(_ prompt: MLXArray) {
+        pendingToken = nil
         grammarMatcher.reset()
     }
-    
+
     public func process(logits: MLXArray) -> MLXArray {
-        return logits + grammarMatcher.nextTokenMask()
+        if let token = pendingToken {
+            pendingToken = nil
+            grammarMatcher.advance(token: token)
+        }
+
+        let mask = grammarMatcher.nextTokenMask()
+        let maskWidth = mask.dim(-1)
+        let logitsWidth = logits.dim(-1)
+
+        if maskWidth == logitsWidth {
+            return logits + mask
+        }
+
+        if maskWidth < logitsWidth {
+            let padding = full([logitsWidth - maskWidth], values: -Float.infinity)
+            let mask = concatenated([mask, padding])
+            return logits + mask
+        }
+
+        return logits + mask[0..<logitsWidth]
     }
-    
+
     public func didSample(token: MLXArray) {
-        grammarMatcher.advance(token: token)
+        if !grammarMatcher.isTerminated() {
+            pendingToken = token
+        }
     }
 }

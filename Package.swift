@@ -5,14 +5,15 @@ import PackageDescription
 
 let package = Package(
     name: "mlx-swift-structured",
-    platforms: [.macOS(.v14), .iOS(.v16)],
+    platforms: [.macOS(.v14), .iOS(.v17)],
     products: [.library(name: "MLXStructured", targets: ["MLXStructured"])],
     dependencies: [
-        .package(url: "https://github.com/ml-explore/mlx-swift", from: "0.30.3"),
+        .package(url: "https://github.com/ml-explore/mlx-swift", from: "0.30.6"),
         // Temporary: use fork with VLM broadcast crash fix. Revert to ml-explore/mlx-swift-lm once PR#170 merges.
         .package(url: "https://github.com/Satchitananda/mlx-swift-lm", branch: "fix/vlm_broadcast_shapes_error_fix"),
         .package(url: "https://github.com/huggingface/swift-transformers", from: "1.1.6"),
         .package(url: "https://github.com/petrukha-ivan/swift-json-schema", from: "2.0.2"),
+        .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.1.3"),
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.4.0"),
     ],
     targets: [
@@ -28,15 +29,11 @@ let package = Package(
                 "xgrammar/3rdparty/picojson",
                 "xgrammar/cpp/nanobind",
             ],
-            cSettings: [
-                .headerSearchPath("xgrammar/include"),
-                .headerSearchPath("xgrammar/3rdparty/dlpack/include"),
-                .headerSearchPath("xgrammar/3rdparty/picojson"),
-            ],
             cxxSettings: [
                 .headerSearchPath("xgrammar/include"),
                 .headerSearchPath("xgrammar/3rdparty/dlpack/include"),
                 .headerSearchPath("xgrammar/3rdparty/picojson"),
+                .unsafeFlags(["-w"]),
             ]
         ),
         // Main package
@@ -47,7 +44,8 @@ let package = Package(
                 .product(name: "MLX", package: "mlx-swift"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
                 .product(name: "Hub", package: "swift-transformers"),
-                .product(name: "JSONSchema", package: "swift-json-schema")
+                .product(name: "JSONSchema", package: "swift-json-schema"),
+                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
             ]
         ),
         // CLI for testing
@@ -56,6 +54,8 @@ let package = Package(
             dependencies: [
                 .target(name: "MLXStructured"),
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),
+                .product(name: "MLXVLM", package: "mlx-swift-lm"),
+                .product(name: "Hub", package: "swift-transformers"),
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ],
         ),

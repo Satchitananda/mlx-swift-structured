@@ -11,15 +11,15 @@ import MLXStructured
 import MLXLMCommon
 
 struct StructuralExample: AsyncParsableCommand {
-    
+
     static let configuration = CommandConfiguration(
         commandName: "structural",
         abstract: "Generate text according to complex structural grammar."
     )
-    
+
     @OptionGroup
     var model: ModelArguments
-    
+
     func run() async throws {
         let context = try await model.modelContext()
         let includePrefix = Bool.random()
@@ -36,7 +36,19 @@ struct StructuralExample: AsyncParsableCommand {
         }
         let prompt = "Is it true that London is a capital of a Great Britain?"
         let input = try await context.processor.prepare(input: UserInput(prompt: prompt))
-        let result = try await MLXStructured.generate(input: input, context: context, grammar: grammar)
-        print("Generation result:", result.output)
+        let stream = try await generate(input: input, context: context, grammar: grammar)
+        print("Output:", terminator: " ")
+        fflush(stdout)
+        for await generation in stream {
+            switch generation {
+            case .chunk(let chunk):
+                print(chunk, terminator: "")
+                fflush(stdout)
+            case .toolCall(let toolCall):
+                print("\nTool call:", toolCall)
+            case .info(let info):
+                print("\n\n\(info.summary())")
+            }
+        }
     }
 }

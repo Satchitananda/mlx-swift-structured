@@ -24,8 +24,8 @@ private extension Tool {
             "function": [
                 "name": name,
                 "description": description,
-                "parameters": try! JSONSerialization.jsonObject(with: JSONEncoder().encode(parameters))
-            ]
+                "parameters": try! JSONSerialization.jsonObject(with: JSONEncoder().encode(parameters)),
+            ],
         ]
     }
 }
@@ -35,10 +35,10 @@ private let getCurrentTimeTool = Tool(
     description: "Gets current time at specified city.",
     parameters: .object(
         properties: [
-            "city": .string(),
+            "city": .string()
         ],
         required: [
-            "city",
+            "city"
         ]
     )
 )
@@ -49,28 +49,30 @@ private let getCurrentWeatherTool = Tool(
     parameters: .object(
         properties: [
             "city": .string(),
-            "unit": .enum(values: [.string("celsius"), .string("fahrenheit")])
+            "unit": .enum(values: [.string("celsius"), .string("fahrenheit")]),
         ],
         required: [
-            "city",
+            "city"
         ]
     )
 )
 
 struct ToolCallingExample: AsyncParsableCommand {
-    
+
     static let configuration = CommandConfiguration(
         commandName: "tool-calling",
         abstract: "Generate tool calls according to complex structural grammar."
     )
-    
+
     @OptionGroup
     var model: ModelArguments
-    
+
+    @Flag
+    var forceThinking: Bool = false
+
     func run() async throws {
         let context = try await model.modelContext()
         let tools = [getCurrentTimeTool, getCurrentWeatherTool]
-        let forceThinking = Bool.random()
         let grammar = try Grammar {
             SequenceFormat {
                 if forceThinking {
@@ -89,7 +91,19 @@ struct ToolCallingExample: AsyncParsableCommand {
         }
         let prompt = "Check the weather in Paris."
         let input = try await context.processor.prepare(input: UserInput(prompt: prompt, tools: tools.map(\.schema)))
-        let result = try await MLXStructured.generate(input: input, context: context, grammar: grammar)
-        print("Generation result:", result.output)
+        let stream = try await generate(input: input, context: context, grammar: grammar)
+        print("Output:", terminator: " ")
+        fflush(stdout)
+        for await generation in stream {
+            switch generation {
+            case .chunk(let chunk):
+                print(chunk, terminator: "")
+                fflush(stdout)
+            case .toolCall(let toolCall):
+                print("\nTool call:", toolCall)
+            case .info(let info):
+                print("\n\n\(info.summary())")
+            }
+        }
     }
 }

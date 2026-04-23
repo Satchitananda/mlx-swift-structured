@@ -7,27 +7,27 @@
 
 @resultBuilder
 public enum FormatBuilder {
-    
+
     public static func buildExpression(_ expression: Encodable) -> Encodable {
         expression
     }
-    
+
     public static func buildBlock(_ component: Encodable) -> Encodable {
         component
     }
-    
+
     public static func buildOptional(_ component: Encodable?) -> Encodable {
         component ?? AnyTextFormat()
     }
-    
+
     public static func buildEither(first component: Encodable) -> Encodable {
         component
     }
-    
+
     public static func buildEither(second component: Encodable) -> Encodable {
         component
     }
-    
+
     public static func buildLimitedAvailability(_ component: Encodable) -> Encodable {
         component
     }
@@ -35,31 +35,31 @@ public enum FormatBuilder {
 
 @resultBuilder
 public enum FormatListBuilder {
-    
+
     public static func buildExpression(_ expression: Encodable) -> [Encodable] {
         [expression]
     }
-    
+
     public static func buildBlock(_ components: [Encodable]...) -> [Encodable] {
         components.flatMap { $0 }
     }
-    
+
     public static func buildOptional(_ component: [Encodable]?) -> [Encodable] {
         component ?? []
     }
-    
+
     public static func buildEither(first component: [Encodable]) -> [Encodable] {
         component
     }
-    
+
     public static func buildEither(second component: [Encodable]) -> [Encodable] {
         component
     }
-    
+
     public static func buildArray(_ components: [[Encodable]]) -> [Encodable] {
         components.flatMap { $0 }
     }
-    
+
     public static func buildLimitedAvailability(_ component: [Encodable]) -> [Encodable] {
         component
     }
@@ -67,31 +67,31 @@ public enum FormatListBuilder {
 
 @resultBuilder
 public enum TagListBuilder {
-    
+
     public static func buildExpression(_ expression: TagFormat) -> [TagFormat] {
         [expression]
     }
-    
+
     public static func buildBlock(_ components: [TagFormat]...) -> [TagFormat] {
         components.flatMap { $0 }
     }
-    
+
     public static func buildOptional(_ component: [TagFormat]?) -> [TagFormat] {
         component ?? []
     }
-    
+
     public static func buildEither(first component: [TagFormat]) -> [TagFormat] {
         component
     }
-    
+
     public static func buildEither(second component: [TagFormat]) -> [TagFormat] {
         component
     }
-    
+
     public static func buildArray(_ components: [[TagFormat]]) -> [TagFormat] {
         components.flatMap { $0 }
     }
-    
+
     public static func buildLimitedAvailability(_ component: [TagFormat]) -> [TagFormat] {
         component
     }
@@ -122,11 +122,39 @@ public extension TagFormat {
 }
 
 public extension TriggeredTagsFormat {
-    init(triggers: [String], options: Options = [], @TagListBuilder _ content: () -> [TagFormat]) {
-        self.init(triggers: triggers, tags: content(), options: options)
+    init(
+        triggers: [String],
+        options: Options = [],
+        excludes: [String] = [],
+        @TagListBuilder _ content: () -> [TagFormat]
+    ) {
+        self.init(triggers: triggers, tags: content(), options: options, excludes: excludes)
     }
 }
 
+public extension OptionalFormat {
+    init(@FormatBuilder _ content: () -> Encodable) {
+        self.init(content: content())
+    }
+}
+
+public extension PlusFormat {
+    init(@FormatBuilder _ content: () -> Encodable) {
+        self.init(content: content())
+    }
+}
+
+public extension StarFormat {
+    init(@FormatBuilder _ content: () -> Encodable) {
+        self.init(content: content())
+    }
+}
+
+public extension RepeatFormat {
+    init(min: Int, max: Int, @FormatBuilder _ content: () -> Encodable) {
+        self.init(min: min, max: max, content: content())
+    }
+}
 
 public extension OrFormat {
     mutating func appending(_ formats: [Encodable]) -> OrFormat {

@@ -8,10 +8,10 @@
 import Foundation
 
 struct DLDevice {
-    
+
     var deviceType: Int32
     var deviceId: Int32
-    
+
     public init(deviceType: Int32, deviceId: Int32) {
         self.deviceType = deviceType
         self.deviceId = deviceId
@@ -19,11 +19,11 @@ struct DLDevice {
 }
 
 struct DLDataType {
-    
+
     var code: UInt8
     var bits: UInt8
     var lanes: UInt16
-    
+
     init(rawCode: UInt8, bits: UInt8, lanes: UInt16) {
         self.code = rawCode
         self.bits = bits
@@ -32,7 +32,7 @@ struct DLDataType {
 }
 
 struct DLTensor {
-    
+
     var data: UnsafeMutableRawPointer?
     var device: DLDevice
     var ndim: Int32
@@ -40,7 +40,7 @@ struct DLTensor {
     var shape: UnsafeMutablePointer<Int64>?
     var strides: UnsafeMutablePointer<Int64>?
     var byteOffset: UInt64
-    
+
     init(
         data: UnsafeMutableRawPointer?,
         device: DLDevice,

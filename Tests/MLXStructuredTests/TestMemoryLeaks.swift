@@ -11,7 +11,7 @@ import Foundation
 
 // This test never fails, but it is still useful for checking memory in the profiler
 // Memory usage is currently stable and never exceeds 30 MB
-@Test func testMemoryLeaks() async throws {
+@Test func `Repeated grammar setup keeps memory stable`() async throws {
     for _ in 0..<100 {
         try autoreleasepool {
             let vocab = ["<eos>"] + (0...0xFFFF).compactMap({ UnicodeScalar($0).map(String.init) })
