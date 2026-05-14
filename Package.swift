@@ -9,8 +9,7 @@ let package = Package(
     products: [.library(name: "MLXStructured", targets: ["MLXStructured"])],
     dependencies: [
         .package(url: "https://github.com/ml-explore/mlx-swift", from: "0.30.6"),
-        // Temporary: use fork with VLM broadcast crash fix. Revert to ml-explore/mlx-swift-lm once PR#170 merges.
-        .package(url: "https://github.com/Satchitananda/mlx-swift-lm", branch: "fix/vlm_broadcast_shapes_error_fix"),
+        .package(url: "https://github.com/Satchitananda/mlx-swift-lm", branch: "backport/upstream-main"),
         .package(url: "https://github.com/huggingface/swift-transformers", from: "1.1.6"),
         .package(url: "https://github.com/petrukha-ivan/swift-json-schema", from: "2.0.2"),
         .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.1.3"),
