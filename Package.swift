@@ -9,7 +9,7 @@ let package = Package(
     products: [.library(name: "MLXStructured", targets: ["MLXStructured"])],
     dependencies: [
         .package(url: "https://github.com/ml-explore/mlx-swift", from: "0.30.6"),
-        .package(url: "https://github.com/Satchitananda/mlx-swift-lm", branch: "backport/upstream-main"),
+        .package(path: "../mlx-swift-lm"),
         .package(url: "https://github.com/huggingface/swift-transformers", from: "1.1.6"),
         .package(url: "https://github.com/petrukha-ivan/swift-json-schema", from: "2.0.2"),
         .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.1.3"),
