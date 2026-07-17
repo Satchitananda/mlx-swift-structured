@@ -80,7 +80,7 @@ public struct GrammarConstrainedTokenIterator: TokenIteratorProtocol {
     private mutating func prepare(_ input: LMInput) throws {
         processor.prompt(input.text.tokens)
 
-        switch try model.prepare(input, cache: cache, windowSize: parameters.prefillStepSize) {
+        switch try model.prepare(input, cache: cache, state: state, windowSize: parameters.prefillStepSize) {
         case .tokens(let tokens):
             current = .init(tokens: step(tokens))
         case .logits(let output):
@@ -197,7 +197,7 @@ public struct GrammarConstrainedJumpForwardTokenIterator: TokenIteratorProtocol 
             )
         }
 
-        switch try model.prepare(input, cache: cache, windowSize: parameters.prefillStepSize) {
+        switch try model.prepare(input, cache: cache, state: state, windowSize: parameters.prefillStepSize) {
         case .tokens(let tokens):
             current = .init(tokens: step(tokens))
         case .logits(let output):
