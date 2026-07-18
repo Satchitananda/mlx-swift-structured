@@ -8,8 +8,14 @@ let package = Package(
     platforms: [.macOS(.v14), .iOS(.v17)],
     products: [.library(name: "MLXStructured", targets: ["MLXStructured"])],
     dependencies: [
-        .package(url: "https://github.com/ml-explore/mlx-swift", from: "0.31.5"),
-        .package(url: "https://github.com/ml-explore/mlx-swift-lm", from: "3.31.4"),
+        // Path deps, matching mlx-video-catalog-kit: both dev and release trees carry
+        // mlx-swift / mlx-swift-lm as sibling checkouts (upstream-synced forks). URL deps
+        // here gave the same packages a second identity ("github.com/ml-explore/…" vs the
+        // local path) and Xcode flagged every workspace resolve with "conflicting identity".
+        // The carried prepare(state:) patch needs the sibling lm ≥3.32 anyway — upstream's
+        // 3.31.4 floor no longer compiles this package.
+        .package(path: "../mlx-swift"),
+        .package(path: "../mlx-swift-lm"),
         .package(url: "https://github.com/huggingface/swift-transformers", from: "1.1.6"),
         .package(url: "https://github.com/petrukha-ivan/swift-json-schema", from: "2.0.2"),
         .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.1.3"),
