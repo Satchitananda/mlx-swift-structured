@@ -42,6 +42,7 @@ public struct GrammarConstrainedTokenIterator: TokenIteratorProtocol {
     private let model: any LanguageModel
     private var processor: LogitProcessor
     private let sampler: LogitSampler
+    private let grammarMatcher: GrammarMatcher
     private var state: LMOutput.State?
     private var current: LMInput.Text
     private var cache: [KVCache]
@@ -65,6 +66,7 @@ public struct GrammarConstrainedTokenIterator: TokenIteratorProtocol {
         self.current = input.text
         self.cache = cache ?? model.newCache(parameters: parameters)
         self.parameters = parameters
+        self.grammarMatcher = grammarMatcher
 
         let penaltiesProcessor = parameters.processor()
         let grammarProcessor = GrammarMaskedLogitProcessor(grammarMatcher: grammarMatcher)
@@ -117,6 +119,12 @@ public struct GrammarConstrainedTokenIterator: TokenIteratorProtocol {
 
     public mutating func next() -> Int? {
         if let maxTokens, tokenCount >= maxTokens {
+            return nil
+        }
+        // A desynced matcher can no longer mask anything meaningful. Stop —
+        // a bounded truncation the caller can see beats silently streaming
+        // unconstrained output that still looks grammatical to the UI.
+        if grammarMatcher.isDesynced {
             return nil
         }
 
@@ -262,6 +270,11 @@ public struct GrammarConstrainedJumpForwardTokenIterator: TokenIteratorProtocol 
         }
 
         if grammarMatcher.isTerminated() {
+            return nil
+        }
+        // Desync (rejected accept or failed mask fill) means every further
+        // mask is meaningless — stop instead of generating unconstrained.
+        if grammarMatcher.isDesynced {
             return nil
         }
 

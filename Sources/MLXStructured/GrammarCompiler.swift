@@ -113,20 +113,39 @@ final class GrammarCompiler: @unchecked Sendable {
                         case .none: (0, -1)
                         case .indent(let count): (0, Int32(count))
                         }
-                    var compileOptions = json_schema_compile_options_t(
-                        indent: indent,
-                        any_whitespace: anyWhitespace,
-                        strict_mode: format.strict ? 1 : 0,
-                        max_whitespace_cnt: -1,
-                        has_separators: 0,
-                        separators: .init()
-                    )
-                    return grammar_compiler_compile_json_schema(
-                        pointer,
-                        schemaBuffer.baseAddress,
-                        schemaBuffer.count - 1,
-                        &compileOptions
-                    )
+                    // `.none` must mean COMPACT. XGrammar's default separators
+                    // when any_whitespace is off and indent is unset are
+                    // `", "` / `": "` — a grammar that DEMANDS a space after
+                    // every colon and comma. A model prompted with compact
+                    // JSON then disagrees with the matcher at the first
+                    // separator, and the silent accept()->reset() path turned
+                    // that mismatch into fully unconstrained generation.
+                    let compact = format.whitespace == JSONSchemaFormatOptions.Whitespace.none
+                    return ",".utf8CString.withUnsafeBufferPointer { comma in
+                        ":".utf8CString.withUnsafeBufferPointer { colon in
+                            var compileOptions = json_schema_compile_options_t(
+                                indent: indent,
+                                any_whitespace: anyWhitespace,
+                                strict_mode: format.strict ? 1 : 0,
+                                max_whitespace_cnt: -1,
+                                has_separators: compact ? 1 : 0,
+                                separators: compact
+                                    ? json_schema_separators_t(
+                                        comma_separator_utf8: comma.baseAddress,
+                                        comma_separator_len: comma.count - 1,
+                                        colon_separator_utf8: colon.baseAddress,
+                                        colon_separator_len: colon.count - 1
+                                    )
+                                    : .init()
+                            )
+                            return grammar_compiler_compile_json_schema(
+                                pointer,
+                                schemaBuffer.baseAddress,
+                                schemaBuffer.count - 1,
+                                &compileOptions
+                            )
+                        }
+                    }
                 }
             case .structural(let tag):
                 return tag.utf8CString.withUnsafeBufferPointer {

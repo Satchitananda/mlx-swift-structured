@@ -165,3 +165,49 @@ struct GrammarMatcherTests {
         }
     }
 }
+
+/// Production regressions (SightRoll Director, 2026-08-26): the JSON-schema
+/// grammar for `whitespace: .none` demanded `": "` / `", "` (xgrammar's
+/// default separators carry spaces), so a model prompted with compact JSON
+/// disagreed with the matcher at the first separator — and the silent
+/// accept()->reset() path then let generation run fully unconstrained while
+/// looking healthy.
+struct GrammarDesyncRegressionTests {
+
+    private let jsonVocab = ["{", "}", "\"", ":", ",", "a", "b", "x", " "]
+
+    @Test func `whitespace none compiles a truly compact grammar`() async throws {
+        let schema = #"{"type":"object","properties":{"a":{"type":"string"}},"required":["a"],"additionalProperties":false}"#
+        let matcher = try XGrammar(
+            vocab: jsonVocab,
+            grammar: .schema(schema, format: JSONSchemaFormatOptions(strict: true, whitespace: .none))
+        )
+        for ch in #"{"a":"x"}"# {
+            matcher.accept(string: String(ch))
+        }
+        #expect(!matcher.isDesynced, "compact JSON must walk a whitespace-none grammar without a space after ':'")
+        // Root object closed — anything further is illegal, proving the walk
+        // really consumed the grammar rather than skating on a lax one.
+        matcher.accept(string: "x")
+        #expect(matcher.isDesynced)
+    }
+
+    @Test func `rejected accept marks desync instead of silently resetting`() async throws {
+        let matcher = try XGrammar(
+            vocab: ["Y", "E", "S", "N", "O", "!"],
+            grammar: .ebnf(#"root ::= "YES" "!""#)
+        )
+        matcher.accept(string: "N")
+        #expect(matcher.isDesynced, "an illegal string must mark the matcher desynced")
+        // The old reset() made the matcher accept "YES" again from the start,
+        // hiding the divergence. Desync is sticky until an explicit reset.
+        matcher.accept(string: "YES")
+        #expect(matcher.isDesynced)
+        matcher.reset()
+        #expect(!matcher.isDesynced)
+        matcher.accept(string: "YES")
+        matcher.accept(string: "!")
+        #expect(!matcher.isDesynced, "a legal walk after reset must stay in sync")
+    }
+
+}
