@@ -210,4 +210,60 @@ struct GrammarDesyncRegressionTests {
         #expect(!matcher.isDesynced, "a legal walk after reset must stay in sync")
     }
 
+    @Test func `all allowed mask is not a desync`() async throws {
+        let matcher = try XGrammar(
+            vocab: ["<eos>", "a", "b"],
+            stopTokenIds: [0],
+            grammar: .regex(".*")
+        )
+
+        let allowed = matcher.nextTokenMask().exp().asArray(Int.self)
+
+        #expect(allowed == [1, 1, 1])
+        #expect(!matcher.isDesynced, "xgrammar returns false when no mask is needed; that is not an error")
+    }
+
+    @Test func `lazy processor does not request a mask after accepting stop token`() async throws {
+        let matcher = TerminatingMatcher()
+        let processor = GrammarMaskedLogitProcessor(grammarMatcher: matcher)
+        processor.didSample(token: MLXArray(0))
+
+        _ = processor.process(logits: MLXArray.zeros([3]))
+
+        #expect(matcher.acceptedTokens == 1)
+        #expect(matcher.maskRequests == 0)
+        #expect(!matcher.isDesynced)
+    }
+
+}
+
+private final class TerminatingMatcher: GrammarMatcher {
+    private(set) var acceptedTokens = 0
+    private(set) var maskRequests = 0
+    private(set) var isDesynced = false
+    private var terminated = false
+
+    func isTerminated() -> Bool { terminated }
+
+    func nextTokenMask() -> MLXArray {
+        maskRequests += 1
+        isDesynced = true
+        return MLXArray.zeros([3])
+    }
+
+    func findJumpForwardString() -> String { "" }
+
+    func accept(token: MLXArray) {
+        acceptedTokens += 1
+        terminated = true
+    }
+
+    func accept(string: String) {}
+
+    func reset() {
+        acceptedTokens = 0
+        maskRequests = 0
+        isDesynced = false
+        terminated = false
+    }
 }

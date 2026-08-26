@@ -28,6 +28,14 @@ public class GrammarMaskedLogitProcessor: LogitProcessor, @unchecked Sendable {
         if let token = pendingToken {
             pendingToken = nil
             grammarMatcher.accept(token: token)
+            // The lazy iterator evaluates one token ahead so it can return the
+            // previous token. After accepting EOS, XGrammar is terminated and
+            // FillNextTokenBitmask is no longer a legal operation. The sampled
+            // logits here are never emitted because generateTask stops on that
+            // previous EOS token.
+            if grammarMatcher.isTerminated() || grammarMatcher.isDesynced {
+                return logits
+            }
         }
 
         let mask = grammarMatcher.nextTokenMask()

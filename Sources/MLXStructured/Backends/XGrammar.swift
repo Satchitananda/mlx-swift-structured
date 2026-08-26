@@ -59,19 +59,25 @@ extension XGrammar: GrammarMatcher {
     var isDesynced: Bool { desynced }
 
     func nextTokenMask() -> MLXArray {
-        guard
-            withUnsafeMutablePointer(
-                to: &bitmask,
-                {
-                    grammar_matcher_fill_next_token_bitmask(grammarMatcher, $0)
-                }
-            )
-        else {
+        let fillStatus = withUnsafeMutablePointer(
+            to: &bitmask,
+            {
+                grammar_matcher_fill_next_token_bitmask(grammarMatcher, $0)
+            }
+        )
+        guard fillStatus >= 0 else {
             // A fill failure means the mask is unknowable — an all-zeros
             // (all-allowed) mask is returned for shape compatibility, but the
             // matcher marks itself desynced so callers stop instead of
             // generating unconstrained.
             desynced = true
+            return MLXArray.zeros([vocabSize])
+        }
+
+        // XGrammar returns false when every token is allowed. That is a valid
+        // matcher state, not an error; applying an all-zero additive mask is
+        // equivalent to skipping the mask entirely.
+        guard fillStatus > 0 else {
             return MLXArray.zeros([vocabSize])
         }
 

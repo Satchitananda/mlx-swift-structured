@@ -10,7 +10,8 @@ extern "C" {
 
 void *grammar_matcher_new(void *compiled_grammar);
 
-bool grammar_matcher_fill_next_token_bitmask(void *grammar_matcher, void *next_token_bitmask);
+// 1 = a restrictive mask was written, 0 = all tokens are allowed, -1 = error.
+int32_t grammar_matcher_fill_next_token_bitmask(void *grammar_matcher, void *next_token_bitmask);
 
 bool grammar_matcher_accept_token(void *grammar_matcher, int32_t token_id);
 
