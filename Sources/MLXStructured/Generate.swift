@@ -263,6 +263,27 @@ public func generate(
     context: ModelContext,
     grammar: Grammar
 ) async throws -> AsyncStream<Generation> {
+    try await generateObservingGrammar(
+        input: input, cache: cache, parameters: parameters,
+        options: options, context: context, grammar: grammar
+    ).stream
+}
+
+/// Like `generate(grammar:)`, additionally returning the live grammar
+/// matcher. A desync stop (rejected accept or failed mask fill) ends the
+/// stream exactly like a natural stop — without the matcher, callers cannot
+/// tell a silently truncated output from a completed one, which turned
+/// mid-args desyncs into deterministic retry loops and mid-reply desyncs
+/// into truncated text presented as a normal answer. Check
+/// `matcher.isDesynced` after the stream finishes.
+public func generateObservingGrammar(
+    input: LMInput,
+    cache: [KVCache]? = nil,
+    parameters: GenerateParameters = .init(),
+    options: ConstrainedGenerationOptions = [],
+    context: ModelContext,
+    grammar: Grammar
+) async throws -> (stream: AsyncStream<Generation>, matcher: GrammarMatcher) {
     let processor = try await GrammarMaskedLogitProcessor.from(
         configuration: context.configuration,
         grammar: grammar
@@ -295,5 +316,5 @@ public func generate(
         iterator: iterator
     )
 
-    return stream
+    return (stream, processor.grammarMatcher)
 }
