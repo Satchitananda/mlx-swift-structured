@@ -145,15 +145,15 @@ struct GrammarMatcherTests {
         let advances: [Int] = #"{"a": "b"}"#.map(String.init).compactMap({ vocab.firstIndex(of: $0) }) + [0]
         let expectations: [[Int]] = [
             [0, 1, 0, 0, 0, 0, 0, 0],  // "{"
-            [0, 0, 0, 0, 0, 1, 0, 0],  // """
+            [0, 0, 0, 0, 1, 1, 0, 0],  // optional space or """
             [0, 0, 0, 0, 0, 0, 1, 0],  // "a"
             [0, 0, 0, 0, 0, 1, 0, 0],  // """
-            [0, 0, 0, 1, 0, 0, 0, 0],  // ":"
-            [0, 0, 0, 0, 1, 0, 0, 0],  // " "
-            [0, 0, 0, 0, 0, 1, 0, 0],  // """
+            [0, 0, 0, 1, 1, 0, 0, 0],  // optional space or ":"
+            [0, 0, 0, 0, 1, 1, 0, 0],  // optional space or """
+            [0, 0, 0, 0, 1, 1, 0, 0],  // more space or """
             [0, 1, 1, 1, 1, 1, 1, 1],  // Any char except "<eos>"
             [0, 1, 1, 1, 1, 1, 1, 1],  // Any char except "<eos>"
-            [0, 0, 1, 0, 0, 0, 0, 0],  // "}"
+            [0, 0, 1, 0, 1, 0, 0, 0],  // optional space or "}"
             [1, 0, 0, 0, 0, 0, 0, 0],  // "<eos>"
         ]
 
