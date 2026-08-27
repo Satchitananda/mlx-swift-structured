@@ -81,6 +81,29 @@ struct GrammarMatcherTests {
         }
     }
 
+    @Test func `every configured stop token stays masked until completion`() async throws {
+        let vocab = ["<eos>", "<turn|>", "Y", "E", "S"]
+        let grammarMatcher = try XGrammar(
+            vocab: vocab,
+            stopTokenIds: [0, 1],
+            grammar: .ebnf(#"root ::= "YES""#)
+        )
+
+        let advances = [2, 3, 4]
+        let expectations: [[Int]] = [
+            [0, 0, 1, 0, 0],
+            [0, 0, 0, 1, 0],
+            [0, 0, 0, 0, 1],
+            [1, 1, 0, 0, 0],
+        ]
+
+        for (expectation, advance) in zip(expectations, advances) {
+            #expect(grammarMatcher.nextTokenMask().exp().asArray(Int.self) == expectation)
+            grammarMatcher.accept(token: MLXArray(advance))
+        }
+        #expect(grammarMatcher.nextTokenMask().exp().asArray(Int.self) == expectations[3])
+    }
+
     @Test func `Regex email grammar matcher enforces token constraints`() async throws {
         let vocab = ["<eos>", "a", "b", "c", "@", "."]
         let grammar = Grammar.regex(#"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"#)  // Simple email regex
