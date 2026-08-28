@@ -313,7 +313,8 @@ public func generateObservingGrammar(
         promptTokenCount: input.text.tokens.size,
         modelConfiguration: context.configuration,
         tokenizer: context.tokenizer,
-        iterator: iterator
+        iterator: iterator,
+        stopStrings: []
     )
 
     return (stream, processor.grammarMatcher)
