@@ -103,10 +103,15 @@ extension TokenizerInfo {
         let tokenizerEOSTokenID = tokenizerConfig
             .flatMap { $0.eosToken.string() }
             .flatMap(vocab.firstIndex)
+        let tokenizerUnknownTokenID = tokenizerConfig
+            .flatMap { $0.unkToken.content.string() ?? $0.unkToken.string() }
+            .flatMap(vocab.firstIndex)
+            ?? tokenizerData.model["unkId"].integer()
         let stopTokenIds = stopTokenIDs(
             configurationIDs: configuration.eosTokenIds,
             extraTokenStrings: configuration.extraEOSTokens,
             tokenizerEOSTokenID: tokenizerEOSTokenID,
+            tokenizerUnknownTokenID: tokenizerUnknownTokenID,
             vocab: vocab
         )
 
@@ -117,21 +122,25 @@ extension TokenizerInfo {
         )
     }
 
-    /// The generation loop stops on every ID in `ModelConfiguration.eosTokenIds`,
-    /// not only the tokenizer's primary `<eos>` token. The grammar matcher must
-    /// register the identical set; otherwise a secondary stop token can end a
-    /// constrained stream in the middle of JSON while the matcher still reports
-    /// a healthy, non-terminated state.
+    /// The generation loop stops on every ID in `ModelConfiguration.eosTokenIds`
+    /// and on the tokenizer's unknown token, not only its primary `<eos>` token.
+    /// The grammar matcher must register the identical set; otherwise one of
+    /// those tokens can end a constrained stream in the middle of JSON while the
+    /// matcher still reports a healthy, non-terminated state.
     static func stopTokenIDs(
         configurationIDs: Set<Int>,
         extraTokenStrings: Set<String>,
         tokenizerEOSTokenID: Int?,
+        tokenizerUnknownTokenID: Int?,
         vocab: [String]
     ) -> [Int32] {
         var ids = Set(configurationIDs.filter(vocab.indices.contains))
         ids.formUnion(extraTokenStrings.compactMap(vocab.firstIndex))
         if let tokenizerEOSTokenID, vocab.indices.contains(tokenizerEOSTokenID) {
             ids.insert(tokenizerEOSTokenID)
+        }
+        if let tokenizerUnknownTokenID, vocab.indices.contains(tokenizerUnknownTokenID) {
+            ids.insert(tokenizerUnknownTokenID)
         }
         return ids.compactMap(Int32.init(exactly:)).sorted()
     }
