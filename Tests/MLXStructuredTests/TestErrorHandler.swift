@@ -5,10 +5,43 @@
 //  Created by Ivan Petrukha on 18.09.2025.
 //
 
+import Dispatch
+import Foundation
 import Testing
 @testable import MLXStructured
 
 struct ErrorHandlerTests {
+
+    @Test func `Concurrent callers retain their own native error`() {
+        let firstRecorded = DispatchSemaphore(value: 0)
+        let secondRecorded = DispatchSemaphore(value: 0)
+        let firstRead = DispatchSemaphore(value: 0)
+        let completed = DispatchSemaphore(value: 0)
+        let results = ErrorResults()
+
+        Thread {
+            CErrorHandler.record("first error")
+            firstRecorded.signal()
+            secondRecorded.wait()
+            results.setFirst(CErrorHandler.lastErrorMessage)
+            firstRead.signal()
+            completed.signal()
+        }.start()
+
+        Thread {
+            firstRecorded.wait()
+            CErrorHandler.record("second error")
+            secondRecorded.signal()
+            firstRead.wait()
+            results.setSecond(CErrorHandler.lastErrorMessage)
+            completed.signal()
+        }.start()
+
+        completed.wait()
+        completed.wait()
+
+        #expect(results.values == ("first error", "second error"))
+    }
 
     @Test func `Empty EBNF grammar throws`() async throws {
         #expect(
@@ -110,6 +143,24 @@ struct ErrorHandlerTests {
                 }
             }
         )
+    }
+}
+
+private final class ErrorResults: @unchecked Sendable {
+    private let lock = NSLock()
+    private var first: String?
+    private var second: String?
+
+    var values: (String?, String?) {
+        lock.withLock { (first, second) }
+    }
+
+    func setFirst(_ value: String) {
+        lock.withLock { first = value }
+    }
+
+    func setSecond(_ value: String) {
+        lock.withLock { second = value }
     }
 }
 

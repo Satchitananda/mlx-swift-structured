@@ -81,6 +81,29 @@ struct GrammarMatcherTests {
         }
     }
 
+    @Test func `every configured stop token stays masked until completion`() async throws {
+        let vocab = ["<eos>", "<turn|>", "<unk>", "Y", "E", "S"]
+        let grammarMatcher = try XGrammar(
+            vocab: vocab,
+            stopTokenIds: [0, 1, 2],
+            grammar: .ebnf(#"root ::= "YES""#)
+        )
+
+        let advances = [3, 4, 5]
+        let expectations: [[Int]] = [
+            [0, 0, 0, 1, 0, 0],
+            [0, 0, 0, 0, 1, 0],
+            [0, 0, 0, 0, 0, 1],
+            [1, 1, 1, 0, 0, 0],
+        ]
+
+        for (expectation, advance) in zip(expectations, advances) {
+            #expect(grammarMatcher.nextTokenMask().exp().asArray(Int.self) == expectation)
+            grammarMatcher.accept(token: MLXArray(advance))
+        }
+        #expect(grammarMatcher.nextTokenMask().exp().asArray(Int.self) == expectations[3])
+    }
+
     @Test func `Regex email grammar matcher enforces token constraints`() async throws {
         let vocab = ["<eos>", "a", "b", "c", "@", "."]
         let grammar = Grammar.regex(#"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"#)  // Simple email regex
@@ -145,15 +168,15 @@ struct GrammarMatcherTests {
         let advances: [Int] = #"{"a": "b"}"#.map(String.init).compactMap({ vocab.firstIndex(of: $0) }) + [0]
         let expectations: [[Int]] = [
             [0, 1, 0, 0, 0, 0, 0, 0],  // "{"
-            [0, 0, 0, 0, 0, 1, 0, 0],  // """
+            [0, 0, 0, 0, 1, 1, 0, 0],  // optional space or """
             [0, 0, 0, 0, 0, 0, 1, 0],  // "a"
             [0, 0, 0, 0, 0, 1, 0, 0],  // """
-            [0, 0, 0, 1, 0, 0, 0, 0],  // ":"
-            [0, 0, 0, 0, 1, 0, 0, 0],  // " "
-            [0, 0, 0, 0, 0, 1, 0, 0],  // """
+            [0, 0, 0, 1, 1, 0, 0, 0],  // optional space or ":"
+            [0, 0, 0, 0, 1, 1, 0, 0],  // optional space or """
+            [0, 0, 0, 0, 1, 1, 0, 0],  // more space or """
             [0, 1, 1, 1, 1, 1, 1, 1],  // Any char except "<eos>"
             [0, 1, 1, 1, 1, 1, 1, 1],  // Any char except "<eos>"
-            [0, 0, 1, 0, 0, 0, 0, 0],  // "}"
+            [0, 0, 1, 0, 1, 0, 0, 0],  // optional space or "}"
             [1, 0, 0, 0, 0, 0, 0, 0],  // "<eos>"
         ]
 
@@ -163,5 +186,107 @@ struct GrammarMatcherTests {
             #expect(allowed == expectation)
             grammarMatcher.accept(token: MLXArray(advance))
         }
+    }
+}
+
+/// Production regressions (SightRoll Director, 2026-08-26): the JSON-schema
+/// grammar for `whitespace: .none` demanded `": "` / `", "` (xgrammar's
+/// default separators carry spaces), so a model prompted with compact JSON
+/// disagreed with the matcher at the first separator — and the silent
+/// accept()->reset() path then let generation run fully unconstrained while
+/// looking healthy.
+struct GrammarDesyncRegressionTests {
+
+    private let jsonVocab = ["{", "}", "\"", ":", ",", "a", "b", "x", " "]
+
+    @Test func `whitespace none compiles a truly compact grammar`() async throws {
+        let schema = #"{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"string"}},"required":["a","b"],"additionalProperties":false}"#
+        let matcher = try XGrammar(
+            vocab: jsonVocab,
+            grammar: .schema(schema, format: JSONSchemaFormatOptions(strict: true, whitespace: .none))
+        )
+        for ch in #"{"a":"x","b":"x"}"# {
+            matcher.accept(string: String(ch))
+        }
+        #expect(!matcher.isDesynced, "compact JSON must allow colon and comma separators without spaces")
+        // Root object closed — anything further is illegal, proving the walk
+        // really consumed the grammar rather than skating on a lax one.
+        matcher.accept(string: "x")
+        #expect(matcher.isDesynced)
+    }
+
+    @Test func `rejected accept marks desync instead of silently resetting`() async throws {
+        let matcher = try XGrammar(
+            vocab: ["Y", "E", "S", "N", "O", "!"],
+            grammar: .ebnf(#"root ::= "YES" "!""#)
+        )
+        matcher.accept(token: MLXArray(3))
+        #expect(matcher.isDesynced, "an illegal token must mark the matcher desynced")
+        // The old reset() made the matcher accept "YES" again from the start,
+        // hiding the divergence. Desync is sticky until an explicit reset.
+        matcher.accept(string: "YES")
+        #expect(matcher.isDesynced)
+        matcher.reset()
+        #expect(!matcher.isDesynced)
+        matcher.accept(string: "YES")
+        matcher.accept(string: "!")
+        #expect(!matcher.isDesynced, "a legal walk after reset must stay in sync")
+    }
+
+    @Test func `all allowed mask is not a desync`() async throws {
+        let matcher = try XGrammar(
+            vocab: ["<eos>", "a", "b"],
+            stopTokenIds: [0],
+            grammar: .regex(".*")
+        )
+
+        let allowed = matcher.nextTokenMask().exp().asArray(Int.self)
+
+        #expect(allowed == [1, 1, 1])
+        #expect(!matcher.isDesynced, "xgrammar returns false when no mask is needed; that is not an error")
+    }
+
+    @Test func `lazy processor does not request a mask after accepting stop token`() async throws {
+        let matcher = TerminatingMatcher()
+        let processor = GrammarMaskedLogitProcessor(grammarMatcher: matcher)
+        processor.didSample(token: MLXArray(0))
+
+        _ = processor.process(logits: MLXArray.zeros([3]))
+
+        #expect(matcher.acceptedTokens == 1)
+        #expect(matcher.maskRequests == 0)
+        #expect(!matcher.isDesynced)
+    }
+
+}
+
+private final class TerminatingMatcher: GrammarMatcher {
+    private(set) var acceptedTokens = 0
+    private(set) var maskRequests = 0
+    private(set) var isDesynced = false
+    private var terminated = false
+
+    func isTerminated() -> Bool { terminated }
+
+    func nextTokenMask() -> MLXArray {
+        maskRequests += 1
+        isDesynced = true
+        return MLXArray.zeros([3])
+    }
+
+    func findJumpForwardString() -> String { "" }
+
+    func accept(token: MLXArray) {
+        acceptedTokens += 1
+        terminated = true
+    }
+
+    func accept(string: String) {}
+
+    func reset() {
+        acceptedTokens = 0
+        maskRequests = 0
+        isDesynced = false
+        terminated = false
     }
 }

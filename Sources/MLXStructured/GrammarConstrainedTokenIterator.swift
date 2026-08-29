@@ -42,6 +42,7 @@ public struct GrammarConstrainedTokenIterator: TokenIteratorProtocol {
     private let model: any LanguageModel
     private var processor: LogitProcessor
     private let sampler: LogitSampler
+    private let grammarMatcher: GrammarMatcher
     private var state: LMOutput.State?
     private var current: LMInput.Text
     private var cache: [KVCache]
@@ -65,6 +66,7 @@ public struct GrammarConstrainedTokenIterator: TokenIteratorProtocol {
         self.current = input.text
         self.cache = cache ?? model.newCache(parameters: parameters)
         self.parameters = parameters
+        self.grammarMatcher = grammarMatcher
 
         let penaltiesProcessor = parameters.processor()
         let grammarProcessor = GrammarMaskedLogitProcessor(grammarMatcher: grammarMatcher)
@@ -119,10 +121,24 @@ public struct GrammarConstrainedTokenIterator: TokenIteratorProtocol {
         if let maxTokens, tokenCount >= maxTokens {
             return nil
         }
+        // A desynced matcher can no longer mask anything meaningful. Stop —
+        // a bounded truncation the caller can see beats silently streaming
+        // unconstrained output that still looks grammatical to the UI.
+        if grammarMatcher.isDesynced {
+            return nil
+        }
 
         let previous = current
         current = .init(tokens: step(previous))
         asyncEval(current.tokens)
+
+        // `step` accepts the previously sampled token before producing the
+        // next one. Do not emit that previous token if the matcher rejected it
+        // or could not produce the following mask.
+        if grammarMatcher.isDesynced {
+            return nil
+        }
+
         tokenCount += 1
 
         return previous.tokens.item(Int.self)
@@ -183,6 +199,7 @@ public struct GrammarConstrainedJumpForwardTokenIterator: TokenIteratorProtocol 
         let jumpForwardTokens = tokenizer.encode(text: jumpForwardString, addSpecialTokens: false)
         if !jumpForwardTokens.isEmpty {
             grammarMatcher.accept(string: jumpForwardString)
+            guard !grammarMatcher.isDesynced else { return }
             pendingTokens.append(contentsOf: jumpForwardTokens)
             input = LMInput(
                 text: .init(
@@ -230,6 +247,7 @@ public struct GrammarConstrainedJumpForwardTokenIterator: TokenIteratorProtocol 
         let token = sampler.sample(logits: logits)
         processor.didSample(token: token)
 
+        guard !grammarMatcher.isDesynced else { return token }
         pendingTokens.append(token.item(Int.self))
         if grammarMatcher.isTerminated() {
             return token
@@ -239,6 +257,7 @@ public struct GrammarConstrainedJumpForwardTokenIterator: TokenIteratorProtocol 
         let jumpForwardTokens = tokenizer.encode(text: jumpForwardString, addSpecialTokens: false)
         if !jumpForwardTokens.isEmpty {
             grammarMatcher.accept(string: jumpForwardString)
+            guard !grammarMatcher.isDesynced else { return token }
             pendingTokens.append(contentsOf: jumpForwardTokens)
             if grammarMatcher.isTerminated() {
                 return token
@@ -256,6 +275,12 @@ public struct GrammarConstrainedJumpForwardTokenIterator: TokenIteratorProtocol 
             return nil
         }
 
+        // Never drain tokens accepted or sampled after the matcher diverged.
+        // In particular, a mask failure must not leak one unconstrained token.
+        if grammarMatcher.isDesynced {
+            return nil
+        }
+
         if let token = pendingTokens.popFirst() {
             tokenCount += 1
             return token
@@ -264,9 +289,12 @@ public struct GrammarConstrainedJumpForwardTokenIterator: TokenIteratorProtocol 
         if grammarMatcher.isTerminated() {
             return nil
         }
-
         current = .init(tokens: step(current))
         asyncEval(current.tokens)
+
+        if grammarMatcher.isDesynced {
+            return nil
+        }
 
         if let token = pendingTokens.popFirst() {
             tokenCount += 1

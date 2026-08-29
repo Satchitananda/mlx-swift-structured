@@ -23,6 +23,9 @@ final class XGrammar {
     private let bitmap: MLXArray
     private var bitmask: DLTensor
     private let grammarMatcher: UnsafeMutableRawPointer?
+    /// Set on the first rejected accept or failed bitmask fill; sticky until
+    /// `reset()`. See `GrammarMatcher.isDesynced`.
+    private(set) var desynced = false
 
     init(compiledGrammar: CompiledGrammar) throws {
         guard let grammarMatcher = withCErrorHandling({ grammar_matcher_new(compiledGrammar.pointer) }) else {
@@ -53,15 +56,28 @@ final class XGrammar {
 
 extension XGrammar: GrammarMatcher {
 
+    var isDesynced: Bool { desynced }
+
     func nextTokenMask() -> MLXArray {
-        guard
-            withUnsafeMutablePointer(
-                to: &bitmask,
-                {
-                    grammar_matcher_fill_next_token_bitmask(grammarMatcher, $0)
-                }
-            )
-        else {
+        let fillStatus = withUnsafeMutablePointer(
+            to: &bitmask,
+            {
+                grammar_matcher_fill_next_token_bitmask(grammarMatcher, $0)
+            }
+        )
+        guard fillStatus >= 0 else {
+            // A fill failure means the mask is unknowable — an all-zeros
+            // (all-allowed) mask is returned for shape compatibility, but the
+            // matcher marks itself desynced so callers stop instead of
+            // generating unconstrained.
+            desynced = true
+            return MLXArray.zeros([vocabSize])
+        }
+
+        // XGrammar returns false when every token is allowed. That is a valid
+        // matcher state, not an error; applying an all-zero additive mask is
+        // equivalent to skipping the mask entirely.
+        guard fillStatus > 0 else {
             return MLXArray.zeros([vocabSize])
         }
 
@@ -76,13 +92,19 @@ extension XGrammar: GrammarMatcher {
         let tokenID = token.item(Int32.self)
         let accepted = grammar_matcher_accept_token(grammarMatcher, tokenID)
         if !accepted {
-            reset()
+            // NOT reset(): rewinding to the grammar start silently turned one
+            // divergence into unconstrained generation for the rest of the
+            // step (every later mask was computed against the wrong state).
+            desynced = true
         }
     }
 
     func accept(string: String) {
-        _ = string.withCString { string in
+        let accepted = string.withCString { string in
             grammar_matcher_accept_string(grammarMatcher, string)
+        }
+        if !accepted {
+            desynced = true
         }
     }
 
@@ -99,6 +121,7 @@ extension XGrammar: GrammarMatcher {
 
     func reset() {
         grammar_matcher_reset(grammarMatcher)
+        desynced = false
     }
 
     func isTerminated() -> Bool {

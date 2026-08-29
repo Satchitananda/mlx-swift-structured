@@ -9,17 +9,17 @@ import Foundation
 import CMLXStructured
 
 enum CErrorHandler {
-
-    private static let state = State()
+    /// Native compilation reports errors synchronously on the calling thread.
+    /// Keep the message thread-local so concurrent grammar compilations cannot
+    /// overwrite one another between clear, C call, and Swift error creation.
+    private static let threadDictionaryKey = "mlx-structured.c-error-message"
 
     private static let installHandler: Void = {
         set_error_handler(errorHandlerClosure)
     }()
 
     private static let errorHandlerClosure: @convention(c) (UnsafePointer<CChar>?) -> Void = {
-        state.lastErrorMessage = $0.map {
-            String(cString: $0)
-        }
+        record($0.map { String(cString: $0) })
     }
 
     static func initialize() {
@@ -27,21 +27,19 @@ enum CErrorHandler {
     }
 
     static func clearLastError() {
-        state.lastErrorMessage = nil
+        record(nil)
     }
 
     static var lastErrorMessage: String {
-        state.lastErrorMessage ?? "Unknown Error"
+        Thread.current.threadDictionary[threadDictionaryKey] as? String ?? "Unknown Error"
     }
 
-    private final class State: @unchecked Sendable {
-
-        let lock = NSLock()
-        var _lastErrorMessage: String? = nil
-
-        var lastErrorMessage: String? {
-            get { lock.withLock { _lastErrorMessage } }
-            set { lock.withLock { _lastErrorMessage = newValue } }
+    static func record(_ message: String?) {
+        let dictionary = Thread.current.threadDictionary
+        if let message {
+            dictionary[threadDictionaryKey] = message
+        } else {
+            dictionary.removeObject(forKey: threadDictionaryKey)
         }
     }
 }

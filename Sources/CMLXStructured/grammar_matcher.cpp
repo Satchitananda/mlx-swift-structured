@@ -18,17 +18,17 @@ extern "C" void *grammar_matcher_new(void *compiled_grammar) {
     }
 }
 
-extern "C" bool grammar_matcher_fill_next_token_bitmask(
+extern "C" int32_t grammar_matcher_fill_next_token_bitmask(
     void *grammar_matcher,
     void *next_token_bitmask
 ) {
     try {
         auto *grammar_matcher_ptr = static_cast<GrammarMatcher *>(grammar_matcher);
         auto *next_token_bitmask_ptr = static_cast<DLTensor *>(next_token_bitmask);
-        return grammar_matcher_ptr->FillNextTokenBitmask(next_token_bitmask_ptr);
+        return grammar_matcher_ptr->FillNextTokenBitmask(next_token_bitmask_ptr) ? 1 : 0;
     } catch (const std::exception &e) {
         catch_error(e.what());
-        return false;
+        return -1;
     }
 }
 
