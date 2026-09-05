@@ -27,13 +27,21 @@ final class CompiledGrammar: @unchecked Sendable {
 
 final class GrammarCompiler: @unchecked Sendable {
 
+    // The factory retains one compiler per tokenizer. Per-turn tool schemas
+    // must not accumulate forever; XGrammar evicts cached rules/grammars while
+    // active matchers keep their own shared ownership of compiled state.
+    static let defaultCacheMemoryBytes: Int64 = 128 * 1_024 * 1_024
+
     let pointer: UnsafeMutableRawPointer
+
+    var cacheSizeBytes: Int64 { grammar_compiler_cache_size_bytes(pointer) }
+    var cacheLimitBytes: Int64 { grammar_compiler_cache_limit_bytes(pointer) }
 
     init(
         tokenizerInfo: TokenizerInfo,
         maxThreads: Int32 = 8,
         cacheEnabled: Bool = true,
-        maxMemoryBytes: Int64 = -1
+        maxMemoryBytes: Int64 = GrammarCompiler.defaultCacheMemoryBytes
     ) throws {
         self.pointer = try withCErrorHandling {
             let vocab = tokenizerInfo.vocab.map { strdup($0) }
