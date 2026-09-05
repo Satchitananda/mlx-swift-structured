@@ -32,6 +32,9 @@ void *grammar_compiler_new(
 
 void grammar_compiler_free(void *grammar_compiler);
 
+int64_t grammar_compiler_cache_size_bytes(void *grammar_compiler);
+int64_t grammar_compiler_cache_limit_bytes(void *grammar_compiler);
+
 void *grammar_compiler_compile_ebnf(void *grammar_compiler, const char *ebnf_utf8, size_t ebnf_len);
 
 void *grammar_compiler_compile_regex(

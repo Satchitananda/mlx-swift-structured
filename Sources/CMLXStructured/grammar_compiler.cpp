@@ -162,3 +162,22 @@ extern "C" void compiled_grammar_free(void *compiled_grammar) {
         delete static_cast<CompiledGrammar *>(compiled_grammar);
     }
 }
+
+
+extern "C" int64_t grammar_compiler_cache_size_bytes(void *grammar_compiler) {
+    try {
+        return static_cast<GrammarCompiler *>(grammar_compiler)->GetCacheSizeBytes();
+    } catch (const std::exception &e) {
+        catch_error(e.what());
+        return -1;
+    }
+}
+
+extern "C" int64_t grammar_compiler_cache_limit_bytes(void *grammar_compiler) {
+    try {
+        return static_cast<GrammarCompiler *>(grammar_compiler)->CacheLimitBytes();
+    } catch (const std::exception &e) {
+        catch_error(e.what());
+        return -1;
+    }
+}

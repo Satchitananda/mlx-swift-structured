@@ -278,3 +278,14 @@ The output is fully valid JSON that exactly matches the provided schema. This sh
 ## Troubleshooting
 
 This library is still in an early stage of development. While it is already functional, it may have unexpected issues or even crash your program. If you encounter a problem, please create an issue or open a pull request. Contributions are welcome!
+
+
+### Compiled grammar cache
+
+Each tokenizer's compiler retains at most 128 MiB of cached grammar/rule state
+by default. XGrammar evicts old entries as tool schemas change between turns.
+The limit covers retained cache entries, not transient compilation memory or
+state held by an active matcher; eviction does not invalidate active generation.
+Synthetic cache-churn tests cover eviction and matcher lifetime, and SightRoll's
+CatalogKit model gate measures the largest supported deliverable schemas against
+the real tokenizer.
