@@ -186,6 +186,11 @@ chunking and progress callbacks, to the model. Cache creation errors propagate
 from initialization; supplying a cache bypasses creation. The iterator's
 read-only `state` exposes the model state returned during generation.
 
+`GrammarMaskedLogitProcessor.grammarMatcher` exposes the matcher for adapters
+that wrap a bounded reasoning phase before returning to the output grammar.
+Keep each matcher within one isolated generation; it is mutable state and must
+not be shared across requests or speculative branches.
+
 ## Experiments
 
 ### Performance
