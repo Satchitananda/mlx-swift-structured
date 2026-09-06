@@ -43,7 +43,7 @@ public struct GrammarConstrainedTokenIterator: TokenIteratorProtocol {
     private var processor: LogitProcessor
     private let sampler: LogitSampler
     private let grammarMatcher: GrammarMatcher
-    private var state: LMOutput.State?
+    public private(set) var state: LMOutput.State?
     private var current: LMInput.Text
     private var cache: [KVCache]
     private let parameters: GenerateParameters
@@ -64,7 +64,7 @@ public struct GrammarConstrainedTokenIterator: TokenIteratorProtocol {
     ) throws {
         self.model = model
         self.current = input.text
-        self.cache = cache ?? model.newCache(parameters: parameters)
+        self.cache = try cache ?? model.newCache(parameters: parameters)
         self.parameters = parameters
         self.grammarMatcher = grammarMatcher
 
@@ -82,7 +82,7 @@ public struct GrammarConstrainedTokenIterator: TokenIteratorProtocol {
     private mutating func prepare(_ input: LMInput) throws {
         processor.prompt(input.text.tokens)
 
-        switch try model.prepare(input, cache: cache, state: state, windowSize: parameters.prefillStepSize) {
+        switch try model.prepare(input, cache: cache, state: state, prefill: parameters.prefill) {
         case .tokens(let tokens):
             current = .init(tokens: step(tokens))
         case .logits(let output):
@@ -150,7 +150,7 @@ public struct GrammarConstrainedJumpForwardTokenIterator: TokenIteratorProtocol 
     private let model: any LanguageModel
     private var processor: any LogitProcessor
     private let sampler: any LogitSampler
-    private var state: LMOutput.State?
+    public private(set) var state: LMOutput.State?
     private var current: LMInput.Text
     private var cache: [KVCache]
     private let parameters: GenerateParameters
@@ -175,7 +175,7 @@ public struct GrammarConstrainedJumpForwardTokenIterator: TokenIteratorProtocol 
     ) throws {
         self.model = model
         self.current = input.text
-        self.cache = cache ?? model.newCache(parameters: parameters)
+        self.cache = try cache ?? model.newCache(parameters: parameters)
         self.parameters = parameters
         self.tokenizer = tokenizer
         self.grammarMatcher = grammarMatcher
@@ -214,7 +214,7 @@ public struct GrammarConstrainedJumpForwardTokenIterator: TokenIteratorProtocol 
             )
         }
 
-        switch try model.prepare(input, cache: cache, state: state, windowSize: parameters.prefillStepSize) {
+        switch try model.prepare(input, cache: cache, state: state, prefill: parameters.prefill) {
         case .tokens(let tokens):
             current = .init(tokens: step(tokens))
         case .logits(let output):
