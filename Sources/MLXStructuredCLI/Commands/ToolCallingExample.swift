@@ -99,6 +99,8 @@ struct ToolCallingExample: AsyncParsableCommand {
             case .chunk(let chunk):
                 print(chunk, terminator: "")
                 fflush(stdout)
+            case .rejectedToolCall(let rejected):
+                print("\nRejected tool call:", rejected)
             case .toolCall(let toolCall):
                 print("\nTool call:", toolCall)
             case .info(let info):

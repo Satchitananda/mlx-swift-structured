@@ -125,6 +125,8 @@ for await generation in stream {
         print(chunk, terminator: "")
     case .toolCall(let toolCall):
         // Handle tool call
+    case .rejectedToolCall(let rejected):
+        print("Rejected tool call:", rejected)
     case .info(let info):
         // Handle completion info
     }
@@ -178,6 +180,11 @@ let stream = try await generate(
 ```
 
 You can find more usage examples in the `MLXStructuredCLI` target and in the unit tests.
+
+Both constrained iterators forward `GenerateParameters.prefill`, including
+chunking and progress callbacks, to the model. Cache creation errors propagate
+from initialization; supplying a cache bypasses creation. The iterator's
+read-only `state` exposes the model state returned during generation.
 
 ## Experiments
 
