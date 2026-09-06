@@ -10,7 +10,9 @@ import MLX
 
 public class GrammarMaskedLogitProcessor: LogitProcessor, @unchecked Sendable {
 
-    let grammarMatcher: GrammarMatcher
+    /// The per-generation matcher. Adapters may wrap it to gate a bounded
+    /// reasoning prefix before applying the grammar; never share across runs.
+    public let grammarMatcher: GrammarMatcher
     var pendingToken: MLXArray?
 
     public init(grammarMatcher: GrammarMatcher) {
