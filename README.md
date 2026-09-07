@@ -191,6 +191,12 @@ that wrap a bounded reasoning phase before returning to the output grammar.
 Keep each matcher within one isolated generation; it is mutable state and must
 not be shared across requests or speculative branches.
 
+JSON-schema generation excludes non-stop special token IDs, such as reserved
+image or reasoning markers, from the output vocabulary. Stop tokens still end
+generation normally, and ordinary text tokens can still spell a quoted marker.
+Regex, EBNF, and structural grammars retain special tokens for formats that
+explicitly use them, with a separate compiler cache from JSON-schema generation.
+
 ## Experiments
 
 ### Performance
@@ -294,7 +300,7 @@ This library is still in an early stage of development. While it is already func
 
 ### Compiled grammar cache
 
-Each tokenizer's compiler retains at most 128 MiB of cached grammar/rule state
+Each tokenizer's compiler mode retains at most 128 MiB of cached grammar/rule state
 by default. XGrammar evicts old entries as tool schemas change between turns.
 The limit covers retained cache entries, not transient compilation memory or
 state held by an active matcher; eviction does not invalidate active generation.
