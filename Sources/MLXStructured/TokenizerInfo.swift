@@ -13,6 +13,7 @@ struct TokenizerInfo: Sendable {
     let vocab: [String]
     let vocabType: Int32
     let stopTokenIds: [Int32]
+    var specialTokenIds: [Int32] = []
 }
 
 extension TokenizerInfo {
@@ -115,11 +116,30 @@ extension TokenizerInfo {
             vocab: vocab
         )
 
+        let specialTokenIds = tokenizerData.addedTokens.array(or: []).compactMap { value -> Int32? in
+            guard value.special.boolean(or: false), let id = value.id.integer(), vocab.indices.contains(id) else { return nil }
+            return Int32(exactly: id)
+        }
         return TokenizerInfo(
             vocab: vocab,
             vocabType: vocabType,
-            stopTokenIds: stopTokenIds
+            stopTokenIds: stopTokenIds,
+            specialTokenIds: specialTokenIds
         )
+    }
+
+    /// XGrammar identifies empty vocabulary entries as forbidden control tokens.
+    /// JSON output needs text tokens only; reserved image/reasoning markers must
+    /// not be sampled inside strings. Keep stop IDs intact for normal completion.
+    /// Ordinary tokens can still spell the same text when the user quotes it.
+    func excludingNonStopSpecialTokens() -> Self {
+        var textVocab = vocab
+        let stops = Set(stopTokenIds)
+        for id in specialTokenIds where !stops.contains(id) && textVocab.indices.contains(Int(id)) {
+            textVocab[Int(id)] = ""
+        }
+        return Self(vocab: textVocab, vocabType: vocabType, stopTokenIds: stopTokenIds,
+                    specialTokenIds: specialTokenIds)
     }
 
     /// The generation loop stops on every ID in `ModelConfiguration.eosTokenIds`
