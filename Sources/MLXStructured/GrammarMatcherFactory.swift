@@ -10,20 +10,31 @@ import Hub
 
 extension GrammarMaskedLogitProcessor {
 
-    private static let cache = Cache<ModelConfiguration, GrammarCompiler>()
+    private struct CompilerKey: Hashable, Sendable {
+        let configuration: ModelConfiguration
+        let jsonTextOnly: Bool
+    }
+
+    private static let cache = Cache<CompilerKey, GrammarCompiler>()
 
     public static func from(
         hub: HubApi = .shared,
         configuration: ModelConfiguration,
         grammar: Grammar
     ) async throws -> GrammarMaskedLogitProcessor {
+        // EBNF/regex/structural grammars may deliberately match control tokens.
+        // JSON schema compilation gets its own vocabulary and compiler cache.
+        let jsonTextOnly: Bool
+        if case .schema = grammar { jsonTextOnly = true } else { jsonTextOnly = false }
+        let key = CompilerKey(configuration: configuration, jsonTextOnly: jsonTextOnly)
         let compiler: GrammarCompiler
-        if let cached = await cache.value(for: configuration) {
+        if let cached = await cache.value(for: key) {
             compiler = cached
         } else {
             let tokenizerInfo = try await TokenizerInfo.from(hub: hub, configuration: configuration)
-            compiler = try GrammarCompiler(tokenizerInfo: tokenizerInfo)
-            await cache.set(compiler, for: configuration)
+            compiler = try GrammarCompiler(tokenizerInfo: jsonTextOnly
+                ? tokenizerInfo.excludingNonStopSpecialTokens() : tokenizerInfo)
+            await cache.set(compiler, for: key)
         }
 
         let compiledGrammar = try compiler.compile(grammar: grammar)
