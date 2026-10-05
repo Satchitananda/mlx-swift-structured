@@ -1,5 +1,7 @@
 # MLX Structured
 
+SightRoll fork: [published release compatibility and retained fixes](UPSTREAM_RELEASE_SYNC.md).
+
 [MLX](https://github.com/ml-explore/mlx-swift) Structured is a Swift library for structured output generation using constrained decoding. It's built on top of the [XGrammar](https://github.com/mlc-ai/xgrammar) library, which provides efficient, flexible, and portable structured generation. You can learn more about the XGrammar algorithm in their [technical report](https://arxiv.org/abs/2411.15100).
 
 ## Installation

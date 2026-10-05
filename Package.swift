@@ -12,7 +12,8 @@ let package = Package(
         // mlx-swift / mlx-swift-lm as sibling checkouts (upstream-synced forks). URL deps
         // here gave the same packages a second identity ("github.com/ml-explore/…" vs the
         // local path) and Xcode flagged every workspace resolve with "conflicting identity".
-        // The carried prepare(state:) patch needs the sibling lm ≥3.32 anyway — upstream's
+        // Validated with sibling MLX 0.32.3 and LM 3.32.3. The carried prepare(state:)
+        // patch needs sibling lm ≥3.32 — upstream's
         // 3.31.4 floor no longer compiles this package.
         .package(path: "../mlx-swift"),
         .package(path: "../mlx-swift-lm"),
